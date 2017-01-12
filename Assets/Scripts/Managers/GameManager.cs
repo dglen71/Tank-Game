@@ -9,16 +9,22 @@ public class GameManager : MonoBehaviour
     public float m_StartDelay = 3f;         
     public float m_EndDelay = 3f;           
     public CameraControl m_CameraControl;   
-    public Text m_MessageText;              
+    public Text m_MessageText;  
     public GameObject m_TankPrefab;         
-    public TankManager[] m_Tanks;           
+    public TankManager[] m_Tanks;
+	public HealthPack m_HealthPack;
+	public Transform[] healthSpawnLocations;
+	[HideInInspector] static private int[] m_Wins; 
+	//static so when new level loads it saves wins
 
 
-    private int m_RoundNumber;              
+	private static int m_RoundNumber;              
     private WaitForSeconds m_StartWait;     
     private WaitForSeconds m_EndWait;       
     private TankManager m_RoundWinner;
-    private TankManager m_GameWinner;       
+    private TankManager m_GameWinner;   
+	private HealthPack m_HealthInstance;
+	private static bool started = false;
 
 
     private void Start()
@@ -28,6 +34,14 @@ public class GameManager : MonoBehaviour
 
         SpawnAllTanks();
         SetCameraTargets();
+
+		if (started == false) {
+			m_Wins = new int[m_Tanks.Length];
+			started = true;
+			m_RoundNumber -= 1;
+			SceneManager.LoadScene (0);
+		}
+		 
 
         StartCoroutine(GameLoop());
     }
@@ -66,10 +80,22 @@ public class GameManager : MonoBehaviour
 
         if (m_GameWinner != null)
         {
-            SceneManager.LoadScene(0);
+            //SceneManager.LoadScene(0);
+			m_MessageText.text = "Press 'R' to Play Again";
+			yield return StartCoroutine(WaitForKey (KeyCode.R));
+			Reset ();
+			SceneManager.LoadScene (0);
         }
         else
         {
+			if (m_RoundNumber <= 2) {
+				SceneManager.LoadScene (m_RoundNumber);
+			} else if (m_RoundNumber > 2) {
+				int choice = Random.Range (0, 3); // change if number of levels is different!!
+				SceneManager.LoadScene (choice);
+			}
+
+			yield return m_EndWait;
             StartCoroutine(GameLoop());
         }
     }
@@ -80,9 +106,14 @@ public class GameManager : MonoBehaviour
 		ResetAllTanks ();
 		DisableTankControl ();
 
+		//Health Pack
+		m_HealthInstance = Instantiate(m_HealthPack, transform.position,transform.rotation) as HealthPack;
+		m_HealthInstance.spawnLocations = healthSpawnLocations;
+
 		m_CameraControl.SetStartPositionAndSize ();
 
-		m_RoundNumber++;m_MessageText.text = "ROUND " + m_RoundNumber;
+		m_RoundNumber++;
+		m_MessageText.text = "ROUND " + m_RoundNumber;
 
 		yield return m_StartWait;
     }
@@ -107,12 +138,15 @@ public class GameManager : MonoBehaviour
     {
 		DisableTankControl ();
 
+		//Health Pack
+		Destroy(m_HealthInstance.gameObject);
+
 		m_RoundWinner = null;
 
 		m_RoundWinner = GetRoundWinner ();
 
-		if (m_RoundWinner != null)
-			m_RoundWinner.m_Wins++;
+		if (m_RoundWinner != null) 
+			m_Wins[m_RoundWinner.m_PlayerNumber - 1] += 1;
 
 		m_GameWinner = GetGameWinner ();
 
@@ -153,7 +187,7 @@ public class GameManager : MonoBehaviour
     {
         for (int i = 0; i < m_Tanks.Length; i++)
         {
-            if (m_Tanks[i].m_Wins == m_NumRoundsToWin)
+			if (m_Wins[i] == m_NumRoundsToWin)
                 return m_Tanks[i];
         }
 
@@ -172,7 +206,7 @@ public class GameManager : MonoBehaviour
 
         for (int i = 0; i < m_Tanks.Length; i++)
         {
-            message += m_Tanks[i].m_ColoredPlayerText + ": " + m_Tanks[i].m_Wins + " WINS\n";
+			message += m_Tanks[i].m_ColoredPlayerText + ": " + m_Wins[i] + " WINS\n";
         }
 
         if (m_GameWinner != null)
@@ -207,4 +241,22 @@ public class GameManager : MonoBehaviour
             m_Tanks[i].DisableControl();
         }
     }
+
+	private void Reset()
+	{
+		for (int i = 0; i < m_Tanks.Length; i++)
+		{
+			m_Wins[i] = 0;
+		}
+
+		started = false;
+		m_RoundNumber = 0;
+	}
+
+	IEnumerator WaitForKey(KeyCode keycode)
+	{
+		while (Input.GetKeyDown (keycode) == false)
+			yield return null;
+
+	}
 }

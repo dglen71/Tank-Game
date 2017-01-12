@@ -33,7 +33,7 @@ public class TankHealth : MonoBehaviour
 
         SetHealthUI();
     }
-    
+		
 
     public void TakeDamage(float amount)
     {
@@ -77,4 +77,11 @@ public class TankHealth : MonoBehaviour
 
 		gameObject.SetActive (false);
     }
+
+	public void HealthPack()
+	{
+		m_CurrentHealth = m_StartingHealth;
+
+		SetHealthUI ();
+	}
 }
